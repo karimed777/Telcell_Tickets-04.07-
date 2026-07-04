@@ -1,0 +1,41 @@
+{
+  "Files": [
+    {
+      "Id": "C:\\Users\\Yakudza\\Desktop\\telcell_tickets\\backend\\TelcellTickets.Api\\wwwroot\\admin\\api.js",
+      "PackagePath": "staticwebassets\\admin\\api.js"
+    },
+    {
+      "Id": "C:\\Users\\Yakudza\\Desktop\\telcell_tickets\\backend\\TelcellTickets.Api\\wwwroot\\admin\\app.js",
+      "PackagePath": "staticwebassets\\admin\\app.js"
+    },
+    {
+      "Id": "C:\\Users\\Yakudza\\Desktop\\telcell_tickets\\backend\\TelcellTickets.Api\\wwwroot\\admin\\editor.js",
+      "PackagePath": "staticwebassets\\admin\\editor.js"
+    },
+    {
+      "Id": "C:\\Users\\Yakudza\\Desktop\\telcell_tickets\\backend\\TelcellTickets.Api\\wwwroot\\admin\\index.html",
+      "PackagePath": "staticwebassets\\admin\\index.html"
+    },
+    {
+      "Id": "C:\\Users\\Yakudza\\Desktop\\telcell_tickets\\backend\\TelcellTickets.Api\\wwwroot\\admin\\styles.css",
+      "PackagePath": "staticwebassets\\admin\\styles.css"
+    },
+    {
+      "Id": "obj\\Debug\\net8.0\\staticwebassets\\msbuild.TelcellTickets.Api.Microsoft.AspNetCore.StaticWebAssets.props",
+      "PackagePath": "build\\Microsoft.AspNetCore.StaticWebAssets.props"
+    },
+    {
+      "Id": "obj\\Debug\\net8.0\\staticwebassets\\msbuild.build.TelcellTickets.Api.props",
+      "PackagePath": "build\\TelcellTickets.Api.props"
+    },
+    {
+      "Id": "obj\\Debug\\net8.0\\staticwebassets\\msbuild.buildMultiTargeting.TelcellTickets.Api.props",
+      "PackagePath": "buildMultiTargeting\\TelcellTickets.Api.props"
+    },
+    {
+      "Id": "obj\\Debug\\net8.0\\staticwebassets\\msbuild.buildTransitive.TelcellTickets.Api.props",
+      "PackagePath": "buildTransitive\\TelcellTickets.Api.props"
+    }
+  ],
+  "ElementsToRemove": []
+}

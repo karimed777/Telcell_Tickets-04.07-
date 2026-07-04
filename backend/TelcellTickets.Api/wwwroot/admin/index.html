@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=1280" />
+  <title>Telcell Tickets · Админка залов</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <!-- Заглушка для узких экранов (админка только для десктопа) -->
+  <div id="too-narrow">
+    <div class="narrow-card">
+      <div class="narrow-logo">Telcell <span>Tickets</span></div>
+      <h2>Откройте на десктопе</h2>
+      <p>Редактор залов работает при ширине окна от 1280px.<br>Разверните окно или используйте компьютер.</p>
+    </div>
+  </div>
+
+  <div id="app">
+    <!-- Шапка -->
+    <header class="topbar">
+      <div class="brand" data-nav="#/layouts">Telcell <span>Tickets</span> · Залы</div>
+      <nav class="topnav">
+        <a href="#/layouts" data-tab="layouts">Шаблоны залов</a>
+        <a href="#/events" data-tab="events">Мероприятия</a>
+      </nav>
+    </header>
+
+    <!-- Роутовый контейнер -->
+    <main id="view"></main>
+  </div>
+
+  <!-- Хост для модалок/попапов/тостов -->
+  <div id="overlay-host"></div>
+
+  <script src="api.js"></script>
+  <script src="editor.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

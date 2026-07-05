@@ -32,10 +32,22 @@ public class Venue
     public ICollection<Event> Events { get; set; } = new List<Event>();
 }
 
+public enum EventStatus
+{
+    Draft,
+    Published,
+    Archived
+}
+
 /// <summary>Событие афиши.</summary>
 public class Event
 {
     public Guid Id { get; set; }
+
+    public Guid? OrganizerId { get; set; }
+    public AppUser? Organizer { get; set; }
+
+    public EventStatus Status { get; set; } = EventStatus.Published;
     public string Title { get; set; } = "";
     public string TitleAm { get; set; } = "";  // Армянское название
     public string Description { get; set; } = "";
@@ -87,6 +99,10 @@ public class AppUser
     // Роль администратора — даёт доступ к admin-эндпоинтам (создание
     // мероприятий, модерация). Выдаётся через скрытый вход.
     public bool IsAdmin { get; set; }
+
+    public bool IsOrganizer { get; set; }
+    public string? OrganizerName { get; set; }
+    public string? PasswordHash { get; set; }
 
     // ── Авторизация по телефону + mock-OTP (имитация SMS) ──────────────
     // Код последнего запрошенного входа и срок его действия. В реальном

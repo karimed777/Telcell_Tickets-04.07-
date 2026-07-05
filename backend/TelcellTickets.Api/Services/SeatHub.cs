@@ -19,6 +19,13 @@ public class SeatHub
         public required WebSocket Socket { get; init; }
         public required string SessionId { get; init; }
         public required Guid EventId { get; init; }
+        public bool IsObserver { get; init; }
+    }
+
+    public int OnlineCount(Guid eventId)
+    {
+        if (!_byEvent.TryGetValue(eventId, out var conns)) return 0;
+        return conns.Values.Count(c => !c.IsObserver && c.Socket.State == WebSocketState.Open);
     }
 
     // eventId -> (connectionId -> connection)

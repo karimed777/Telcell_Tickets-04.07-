@@ -77,8 +77,16 @@ public class AppDbContext : DbContext
             .HasIndex(t => t.QrToken)
             .IsUnique();
 
+        b.Entity<Event>()
+            .HasOne(e => e.Organizer)
+            .WithMany()
+            .HasForeignKey(e => e.OrganizerId)
+            .IsRequired(false)
+            .OnDelete(DeleteBehavior.SetNull);
+
         // enum -> string в БД (читаемо для дебага)
         b.Entity<Event>().Property(e => e.Category).HasConversion<string>();
+        b.Entity<Event>().Property(e => e.Status).HasConversion<string>();
         b.Entity<Ticket>().Property(t => t.Status).HasConversion<string>();
         b.Entity<Order>().Property(o => o.Status).HasConversion<string>();
 

@@ -8,6 +8,38 @@ const Editor = (() => {
   const DEFAULT_COLOR = '#6C63FF';
   const SEAT_TYPES = ['Standard', 'VIP', 'Sofa', 'Standing', 'Disabled'];
   const TYPE_RU = { Standard: 'Стандарт', VIP: 'VIP', Sofa: 'Диван', Standing: 'Стоячее', Disabled: 'Инвалид' };
+  const PRESET_COLORS = [
+    { name: 'Красный', hex: '#E53935' },
+    { name: 'Оранжевый', hex: '#FB8C00' },
+    { name: 'Жёлтый', hex: '#FDD835' },
+    { name: 'Зелёный', hex: '#43A047' },
+    { name: 'Бирюзовый', hex: '#00ACC1' },
+    { name: 'Синий', hex: '#1E88E5' },
+    { name: 'Фиолетовый', hex: '#8E24AA' },
+    { name: 'Серый', hex: '#9E9E9E' },
+    { name: 'Чёрный', hex: '#212121' },
+    { name: 'Белый', hex: '#FFFFFF' },
+  ];
+
+  function presetSwatches(prefix, current) {
+    const cur = (current || '').toLowerCase();
+    return `<div class="bp-presets" id="${prefix}-presets">` + PRESET_COLORS.map(p =>
+      `<button type="button" class="swatch${cur === p.hex.toLowerCase() ? ' sel' : ''}" data-hex="${p.hex}" title="${p.name} ${p.hex}" style="background:${p.hex}"></button>`
+    ).join('') + `</div>`;
+  }
+
+  function markSwatch(el, prefix, hex) {
+    const h = (hex || '').toLowerCase();
+    el.querySelectorAll(`#${prefix}-presets .swatch`).forEach(x =>
+      x.classList.toggle('sel', x.dataset.hex.toLowerCase() === h));
+  }
+
+  function wireSwatches(el, prefix, apply) {
+    el.querySelectorAll(`#${prefix}-presets .swatch`).forEach(btn => btn.onclick = () => {
+      apply(btn.dataset.hex);
+      markSwatch(el, prefix, btn.dataset.hex);
+    });
+  }
 
   const rad = (d) => d * Math.PI / 180;
   const uid = () => 'tmp-' + Math.random().toString(36).slice(2, 10);
@@ -516,7 +548,7 @@ const Editor = (() => {
       else {
         el.innerHTML = `
           <div class="bp-group"><span class="bp-label">Блок</span>${typeSelect('bp-type', b.seatType)}</div>
-          <div class="bp-group"><span class="bp-label">Цвет</span><input class="bp-color" id="bp-color" type="color" value="${toHex(b.defaultColor)}"><input class="bp-field" id="bp-color-hex" style="width:88px" value="${b.defaultColor}"></div>
+          <div class="bp-group"><span class="bp-label">Цвет</span>${presetSwatches('bp', b.defaultColor)}<input class="bp-color" id="bp-color" type="color" value="${toHex(b.defaultColor)}"><input class="bp-field" id="bp-color-hex" style="width:88px" value="${b.defaultColor}"></div>
           <div class="bp-group"><span class="bp-label">Цена</span><input class="bp-field" id="bp-price" type="number" value="${b.defaultPrice}" style="width:90px"></div>
           <div class="bp-group"><span class="bp-label">Описание</span><input class="bp-field" id="bp-desc" value="${b.defaultDescription || ''}"></div>
           <div class="bp-group"><span class="bp-label">Угол</span><input class="bp-field" id="bp-rot" type="number" value="${Math.round(b.rotationDeg)}" style="width:70px">°</div>
@@ -534,7 +566,7 @@ const Editor = (() => {
       el.innerHTML = `
         <div class="bp-group"><span class="bp-label">Выбрано мест: <b>${seats.length}</b></span></div>
         <div class="bp-group">${typeSelect('bp-type', first.seatType || 'Standard')}</div>
-        <div class="bp-group"><span class="bp-label">Цвет</span><input class="bp-color" id="bp-color" type="color" value="${toHex(first.color || DEFAULT_COLOR)}"><input class="bp-field" id="bp-color-hex" style="width:88px" value="${first.color || DEFAULT_COLOR}"></div>
+        <div class="bp-group"><span class="bp-label">Цвет</span>${presetSwatches('bp', first.color || DEFAULT_COLOR)}<input class="bp-color" id="bp-color" type="color" value="${toHex(first.color || DEFAULT_COLOR)}"><input class="bp-field" id="bp-color-hex" style="width:88px" value="${first.color || DEFAULT_COLOR}"></div>
         <div class="bp-group"><span class="bp-label">Цена</span><input class="bp-field" id="bp-price" type="number" value="${first.price ?? ''}" style="width:90px"></div>
         <div class="bp-group"><span class="bp-label">Описание</span><input class="bp-field" id="bp-desc" value="${first.description || ''}"></div>
         <div class="bp-spacer"></div>
@@ -563,15 +595,16 @@ const Editor = (() => {
     // ничего не выбрано → добавление блока
     el.innerHTML = `
       <div class="bp-group"><span class="bp-label">Тип кресла</span>${typeSelect('np-type', S.newType)}</div>
-      <div class="bp-group"><span class="bp-label">Цвет</span><input class="bp-color" id="np-color" type="color" value="${toHex(S.newColor)}"><input class="bp-field" id="np-color-hex" style="width:88px" value="${S.newColor}"></div>
+      <div class="bp-group"><span class="bp-label">Цвет</span>${presetSwatches('np', S.newColor)}<input class="bp-color" id="np-color" type="color" value="${toHex(S.newColor)}"><input class="bp-field" id="np-color-hex" style="width:88px" value="${S.newColor}"></div>
       <div class="bp-group"><span class="bp-label">Цена</span><input class="bp-field" id="np-price" type="number" value="${S.newPrice}" style="width:90px"></div>
       <div class="bp-group"><span class="bp-label">Описание</span><input class="bp-field" id="np-desc" value="${S.newDesc || ''}" placeholder="необязательно"></div>
       <div class="bp-spacer"></div>
       <button class="btn btn-primary" id="np-add">＋ Добавить блок</button>`;
     el.querySelector('#np-type').onchange = (e) => S.newType = e.target.value;
     const npc = el.querySelector('#np-color'), nph = el.querySelector('#np-color-hex');
-    npc.oninput = (e) => { S.newColor = e.target.value; nph.value = e.target.value; };
-    nph.oninput = (e) => { S.newColor = e.target.value; if (/^#[0-9a-f]{6}$/i.test(e.target.value)) npc.value = e.target.value; };
+    npc.oninput = (e) => { S.newColor = e.target.value; nph.value = e.target.value; markSwatch(el, 'np', e.target.value); };
+    nph.oninput = (e) => { S.newColor = e.target.value; if (/^#[0-9a-f]{6}$/i.test(e.target.value)) { npc.value = e.target.value; markSwatch(el, 'np', e.target.value); } };
+    wireSwatches(el, 'np', (hex) => { S.newColor = hex; npc.value = hex; nph.value = hex; });
     el.querySelector('#np-price').oninput = (e) => S.newPrice = +e.target.value || 0;
     el.querySelector('#np-desc').oninput = (e) => S.newDesc = e.target.value;
     el.querySelector('#np-add').onclick = () => {
@@ -591,8 +624,9 @@ const Editor = (() => {
     el.querySelector('#bp-type').onchange = (e) => { b.seatType = e.target.value; b.seats.forEach(s => s.seatType = e.target.value); render(); };
     const col = el.querySelector('#bp-color'), hex = el.querySelector('#bp-color-hex');
     const applyColor = (v) => { b.defaultColor = v; b.seats.forEach(s => s.color = v); render(); };
-    col.oninput = (e) => { hex.value = e.target.value; applyColor(e.target.value); };
-    hex.oninput = (e) => { if (/^#[0-9a-f]{6}$/i.test(e.target.value)) { col.value = e.target.value; applyColor(e.target.value); } };
+    col.oninput = (e) => { hex.value = e.target.value; applyColor(e.target.value); markSwatch(el, 'bp', e.target.value); };
+    hex.oninput = (e) => { if (/^#[0-9a-f]{6}$/i.test(e.target.value)) { col.value = e.target.value; applyColor(e.target.value); markSwatch(el, 'bp', e.target.value); } };
+    wireSwatches(el, 'bp', (v) => { col.value = v; hex.value = v; applyColor(v); });
     el.querySelector('#bp-price').oninput = (e) => { b.defaultPrice = +e.target.value || 0; b.seats.forEach(s => s.price = b.defaultPrice); };
     el.querySelector('#bp-desc').oninput = (e) => { b.defaultDescription = e.target.value; b.seats.forEach(s => s.description = e.target.value); };
     el.querySelector('#bp-rot').oninput = (e) => { b.rotationDeg = +e.target.value || 0; applyBlockTransform(b); render(); };
@@ -607,6 +641,14 @@ const Editor = (() => {
 
   function wireSeatsPanel() {
     const el = S.dom.panel;
+    const scol = el.querySelector('#bp-color'), shex = el.querySelector('#bp-color-hex');
+    scol.oninput = (e) => { shex.value = e.target.value; markSwatch(el, 'bp', e.target.value); };
+    shex.oninput = (e) => { if (/^#[0-9a-f]{6}$/i.test(e.target.value)) { scol.value = e.target.value; markSwatch(el, 'bp', e.target.value); } };
+    wireSwatches(el, 'bp', (v) => {
+      scol.value = v; shex.value = v;
+      for (const s of allSelectedSeats()) s.color = v;
+      render();
+    });
     el.querySelector('#bp-apply').onclick = () => {
       const type = el.querySelector('#bp-type').value;
       const color = el.querySelector('#bp-color-hex').value;

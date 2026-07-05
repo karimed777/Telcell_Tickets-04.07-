@@ -4,6 +4,7 @@ using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using TelcellTickets.Api.Data;
 using TelcellTickets.Api.Dtos;
+using TelcellTickets.Api.Endpoints;
 using TelcellTickets.Api.Models;
 using TelcellTickets.Api.Services;
 
@@ -80,6 +81,7 @@ app.MapGet("/api/events", async (AppDbContext db,
     var query = db.Events
         .Include(e => e.Venue)
         .Include(e => e.TicketTypes)
+        .Where(e => e.Status == EventStatus.Published)
         .AsQueryable();
 
     if (!string.IsNullOrWhiteSpace(category) &&
@@ -119,6 +121,7 @@ app.MapGet("/api/events/{id:guid}", async (AppDbContext db, Guid id) =>
 app.MapGet("/api/map/events", async (AppDbContext db) =>
 {
     var list = await db.Events.Include(e => e.Venue).Include(e => e.TicketTypes)
+        .Where(e => e.Status == EventStatus.Published)
         .OrderBy(e => e.StartsAt).ToListAsync();
     return Results.Ok(list.Select(ToDto));
 });
@@ -482,7 +485,7 @@ app.MapDelete("/api/venue-layouts/{id:guid}", async (AppDbContext db, Guid id) =
     return Results.NoContent();
 });
 
-// ══════════════════════════════════════════════════════════════════════════
+// ════════════════════════════════════════════���═════════════════════════════
 //  СХЕМА МЕРОПРИЯТИЯ (EventLayout)
 // ══════════════════════════════════════════════════════════════════════════
 
@@ -498,10 +501,10 @@ app.MapGet("/api/events/{eventId:guid}/layout", async (AppDbContext db, Guid eve
 });
 
 // POST создать/привязать схему к мероприятию
-app.MapPost("/api/events/{eventId:guid}/layout", async (AppDbContext db, Guid eventId, CreateEventLayoutDto dto) =>
+app.MapPost("/api/events/{eventId:guid}/layout", async (AppDbContext db, HttpRequest http, Guid eventId, CreateEventLayoutDto dto) =>
 {
-    if (!await db.Events.AnyAsync(e => e.Id == eventId))
-        return Results.NotFound(new { error = "Мероприятие не найдено." });
+    var guard = await OrganizerEndpoints.RequireOwnerAsync(db, http, eventId);
+    if (guard is not null) return guard;
 
     // Заменяем существующую схему, если была (удаляем отдельным SaveChanges,
     // чтобы не нарушить уникальный индекс по EventId при вставке новой).
@@ -532,8 +535,11 @@ app.MapPost("/api/events/{eventId:guid}/layout", async (AppDbContext db, Guid ev
 });
 
 // PUT редактировать схему конкретного мероприятия
-app.MapPut("/api/events/{eventId:guid}/layout", async (AppDbContext db, Guid eventId, CreateEventLayoutDto dto) =>
+app.MapPut("/api/events/{eventId:guid}/layout", async (AppDbContext db, HttpRequest http, Guid eventId, CreateEventLayoutDto dto) =>
 {
+    var guard = await OrganizerEndpoints.RequireOwnerAsync(db, http, eventId);
+    if (guard is not null) return guard;
+
     var layout = await db.EventLayouts.Include(l => l.Floors)
         .FirstOrDefaultAsync(l => l.EventId == eventId);
     if (layout is null) return Results.NotFound();
@@ -594,14 +600,18 @@ app.Map("/ws/events/{eventId:guid}/seats", async (HttpContext ctx, Guid eventId,
         wsUserId = wsUser?.Id;
     }
 
+    var isObserver = ctx.Request.Query["observer"].ToString() == "1";
+
     var socket = await ctx.WebSockets.AcceptWebSocketAsync();
     var connId = Guid.NewGuid().ToString("N");
     hub.Add(new SeatHub.Connection
     {
-        ConnectionId = connId, Socket = socket, SessionId = sessionId, EventId = eventId
+        ConnectionId = connId, Socket = socket, SessionId = sessionId, EventId = eventId,
+        IsObserver = isObserver
     });
 
     await SeatHub.SendAsync(socket, new { type = "connected", sessionId });
+    await hub.BroadcastAsync(eventId, new { type = "presence", online = hub.OnlineCount(eventId) });
 
     var buffer = new byte[8 * 1024];
     try
@@ -652,11 +662,38 @@ app.Map("/ws/events/{eventId:guid}/seats", async (HttpContext ctx, Guid eventId,
         hub.Remove(eventId, connId);
         if (socket.State == WebSocketState.Open)
             await socket.CloseAsync(WebSocketCloseStatus.NormalClosure, "bye", CancellationToken.None);
+        await hub.BroadcastAsync(eventId, new { type = "presence", online = hub.OnlineCount(eventId) });
         // Резервы НЕ снимаем при обрыве — их подберёт 5-минутный таймер (переподключение сохраняет выбор).
     }
 });
 
 app.MapGet("/", () => "Telcell Tickets API · OK");
+
+app.MapOrganizerEndpoints();
+
+app.MapPost("/api/uploads", async (HttpRequest http, IWebHostEnvironment env, AppDbContext db) =>
+{
+    var user = await OrganizerEndpoints.CurrentUserAsync(db, http);
+    if (user is null || (!user.IsOrganizer && !user.IsAdmin)) return Results.Unauthorized();
+
+    if (!http.HasFormContentType) return Results.BadRequest(new { error = "Ожидается multipart/form-data." });
+    var form = await http.ReadFormAsync();
+    var file = form.Files.FirstOrDefault();
+    if (file is null || file.Length == 0) return Results.BadRequest(new { error = "Файл не найден." });
+    if (file.Length > 5 * 1024 * 1024) return Results.BadRequest(new { error = "Файл больше 5 МБ." });
+
+    var ext = Path.GetExtension(file.FileName).ToLowerInvariant();
+    var allowed = new[] { ".jpg", ".jpeg", ".png", ".webp" };
+    if (!allowed.Contains(ext)) return Results.BadRequest(new { error = "Допустимы только JPG, PNG, WEBP." });
+
+    var dir = Path.Combine(env.WebRootPath ?? "wwwroot", "uploads");
+    Directory.CreateDirectory(dir);
+    var name = $"{Guid.NewGuid():N}{ext}";
+    await using (var fs = File.Create(Path.Combine(dir, name)))
+        await file.CopyToAsync(fs);
+
+    return Results.Ok(new { url = $"/uploads/{name}" });
+});
 
 // ─── АВТОРИЗАЦИЯ: регистрация + вход (email/телефон + mock-OTP) ─────
 const string devOtpCode = "0000";

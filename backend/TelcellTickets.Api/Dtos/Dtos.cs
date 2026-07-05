@@ -98,3 +98,64 @@ public record AuthResultDto(string Token, UserDto User);
 public record RequestOtpDto(string Phone, string? DisplayName = null);
 public record RequestOtpResultDto(bool Sent, string? DevCode = null);
 public record VerifyOtpDto(string Phone, string Code);
+
+public record OrganizerRegisterDto(
+    string Email,
+    string Password,
+    string OrganizerName,
+    string ContactName,
+    string Phone);
+
+public record OrganizerLoginDto(string Email, string Password);
+
+public record OrganizerDto(
+    Guid Id,
+    string Email,
+    string OrganizerName,
+    string ContactName,
+    string Phone,
+    bool IsAdmin);
+
+public record OrganizerAuthResultDto(string Token, OrganizerDto Organizer);
+
+public record OrganizerEventDto(
+    Guid Id,
+    string Title,
+    string Description,
+    string Category,
+    DateTimeOffset StartsAt,
+    string CoverColorHex,
+    string? CoverImageUrl,
+    string Status,
+    Guid VenueId,
+    string VenueName,
+    string VenueCity,
+    Guid? OrganizerId,
+    bool HasSeatingPlan,
+    int TicketsSold,
+    DateTimeOffset CreatedAt);
+
+public record SaveOrganizerEventDto(
+    string Title,
+    string? Description,
+    string Category,
+    DateTimeOffset StartsAt,
+    Guid VenueId,
+    string? CoverImageUrl,
+    string? CoverColorHex,
+    string Status);
+
+public record EventBuyerDto(
+    Guid UserId,
+    string DisplayName,
+    string Phone,
+    string? Email,
+    int TicketCount,
+    decimal Total,
+    DateTimeOffset LastPurchaseAt);
+
+public record EventBuyersPageDto(
+    int Total,
+    int Page,
+    int PageSize,
+    IEnumerable<EventBuyerDto> Items);

@@ -388,8 +388,11 @@ class _FloorViewState extends State<_FloorView> {
                     painter: _SeatingPainter(
                       floor: widget.floor,
                       origin: _bounds.topLeft,
-                      mine: widget.mine,
-                      others: widget.others,
+                      // Снимки (копии) множеств: исходные Set мутируются на месте
+                      // в setState, поэтому painter должен получать snapshot,
+                      // иначе shouldRepaint не заметит изменений.
+                      mine: Set.of(widget.mine),
+                      others: Set.of(widget.others),
                     ),
                   ),
                 ),
@@ -536,8 +539,10 @@ class _SeatingPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(covariant _SeatingPainter old) =>
-      old.mine != mine || old.others != others || old.floor != floor;
+  // Всегда перерисовываем при rebuild: rebuild происходит только из setState
+  // (WS-событие / тап), а floor мутируется на месте (seat_sold красит место
+  // серым), так что сравнение ссылок изменений не заметит. Отрисовка дешёвая.
+  bool shouldRepaint(covariant _SeatingPainter old) => true;
 }
 
 // ── Нижняя панель: выбрано/итого + оплата ────────────────────────────────

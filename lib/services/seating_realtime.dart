@@ -1,5 +1,8 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:math';
+
+import 'package:web_socket_channel/web_socket_channel.dart';
 
 import '../models/seating.dart';
 

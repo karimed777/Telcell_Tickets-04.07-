@@ -165,6 +165,18 @@ const Editor = (() => {
     ctx.restore();
   }
 
+  // Затемнение (f < 0) или осветление (f > 0) цвета кресла.
+  function shade(hex, f) {
+    let h = String(hex || DEFAULT_COLOR).replace('#', '');
+    if (h.length === 3) h = h.split('').map(c => c + c).join('');
+    const n = parseInt(h, 16);
+    if (Number.isNaN(n)) return hex;
+    let r = (n >> 16) & 255, g = (n >> 8) & 255, b = n & 255;
+    if (f < 0) { r *= 1 + f; g *= 1 + f; b *= 1 + f; }
+    else { r += (255 - r) * f; g += (255 - g) * f; b += (255 - b) * f; }
+    return `rgb(${r | 0},${g | 0},${b | 0})`;
+  }
+
   function drawSeat(seat, rotationDeg) {
     const { ctx } = S;
     const p = worldToScreen(seat.x, seat.y);
@@ -172,42 +184,60 @@ const Editor = (() => {
     ctx.save();
     ctx.translate(p.x, p.y);
     ctx.rotate(rad(rotationDeg || 0));
-    const half = (SEAT / 2) * z;
-    ctx.fillStyle = seat.color || DEFAULT_COLOR;
-    ctx.strokeStyle = 'rgba(0,0,0,0.18)';
-    ctx.lineWidth = 1;
-    const s2 = SEAT * z;
+
+    const col = seat.color || DEFAULT_COLOR;
+    const dark = shade(col, -0.28);   // подлокотники
+    const darker = shade(col, -0.45); // спинка
+    const glow = 'rgba(255,255,255,.18)'; // блик подушки
+
+    const fillRR = (x, y, w, h, r, c) => { ctx.fillStyle = c; roundRect(ctx, x * z, y * z, w * z, h * z, r * z); ctx.fill(); };
+
     switch (seat.seatType) {
-      case 'Standing': // круг
-        ctx.beginPath(); ctx.arc(0, 0, half * 0.9, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+      case 'Standing': { // круг-«пятачок» с человечком
+        ctx.fillStyle = dark;
+        ctx.beginPath(); ctx.arc(0, 0, 16 * z, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = col;
+        ctx.beginPath(); ctx.arc(0, 0, 13.5 * z, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = 'rgba(255,255,255,.92)';
+        ctx.beginPath(); ctx.arc(0, -4.5 * z, 3 * z, 0, Math.PI * 2); ctx.fill();
+        fillRR(-4, -0.5, 8, 8, 4, 'rgba(255,255,255,.92)');
         break;
-      case 'Sofa': // широкий
-        roundRect(ctx, -s2 * 0.75, -half * 0.8, s2 * 1.5, s2 * 0.8, 6 * z); ctx.fill(); ctx.stroke();
-        seatBack(ctx, -s2 * 0.75, -half * 0.8, s2 * 1.5, z);
+      }
+      case 'Sofa': { // диван: подлокотники + спинка + две подушки
+        fillRR(-29, -10, 6, 24, 3, dark);
+        fillRR(23, -10, 6, 24, 3, dark);
+        fillRR(-24, -15, 48, 9, 4, darker);
+        fillRR(-23, -7, 22.5, 20, 5, col);
+        fillRR(0.5, -7, 22.5, 20, 5, col);
+        fillRR(-21, -5, 18.5, 5, 2.5, glow);
+        fillRR(2.5, -5, 18.5, 5, 2.5, glow);
         break;
-      case 'VIP': // шире + подлокотники
-        roundRect(ctx, -half * 1.15, -half * 0.85, s2 * 1.15, s2 * 0.85, 6 * z); ctx.fill(); ctx.stroke();
-        ctx.fillRect(-half * 1.25, -half * 0.5, 3 * z, half); // левый подлокотник
-        ctx.fillRect(half * 1.05, -half * 0.5, 3 * z, half);  // правый
-        seatBack(ctx, -half * 1.15, -half * 0.85, s2 * 1.15, z);
+      }
+      case 'VIP': { // кресло с подлокотниками и золотой строчкой на спинке
+        fillRR(-22, -8, 5, 20, 2.5, dark);
+        fillRR(17, -8, 5, 20, 2.5, dark);
+        fillRR(-17, -15, 34, 9, 4, darker);
+        fillRR(-6, -12.5, 12, 3.5, 1.75, '#FFD166');
+        fillRR(-16, -7, 32, 21, 5, col);
+        fillRR(-13, -4.5, 26, 6, 3, glow);
         break;
-      case 'Disabled':
-        roundRect(ctx, -half * 0.85, -half * 0.85, s2 * 0.85, s2 * 0.85, 6 * z); ctx.fill(); ctx.stroke();
+      }
+      case 'Disabled': { // место для инвалида: рамка + значок
+        fillRR(-15, -15, 30, 30, 8, dark);
+        fillRR(-13, -13, 26, 26, 6.5, col);
         ctx.fillStyle = 'rgba(255,255,255,.95)';
-        ctx.font = `${Math.max(8, 16 * z)}px sans-serif`;
+        ctx.font = `${Math.max(8, 17 * z)}px sans-serif`;
         ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-        ctx.fillText('♿', 0, 1);
+        ctx.fillText('♿', 0, 1 * z);
         break;
-      default: // Standard
-        roundRect(ctx, -half * 0.85, -half * 0.75, s2 * 0.85, s2 * 0.75, 6 * z); ctx.fill(); ctx.stroke();
-        seatBack(ctx, -half * 0.85, -half * 0.75, s2 * 0.85, z);
+      }
+      default: { // Standard: спинка + подушка + блик
+        fillRR(-13, -14, 26, 8, 4, darker);
+        fillRR(-14, -7, 28, 20, 5, col);
+        fillRR(-11, -4.5, 22, 5.5, 2.75, glow);
+      }
     }
     ctx.restore();
-  }
-
-  function seatBack(ctx, x, y, w, z) {
-    ctx.fillStyle = 'rgba(0,0,0,0.22)';
-    ctx.fillRect(x, y - 2 * z, w, 3 * z);
   }
 
   function drawSeatOutline(seat, rotationDeg, color, lw) {

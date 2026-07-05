@@ -481,8 +481,14 @@ class _SeatingPainter extends CustomPainter {
     canvas.rotate(rotationDeg * math.pi / 180);
 
     final sold = s.state == SeatState.sold;
-    final fill = Paint()..color = sold ? const Color(0xFF4A4A5A) : s.color;
-    const half = 18.0;
+    final base = sold ? const Color(0xFF4A4A5A) : s.color;
+    final dark = _shade(base, -0.28);   // подлокотники
+    final darker = _shade(base, -0.45); // спинка
+    final glow = Colors.white.withOpacity(sold ? 0.08 : 0.18); // блик подушки
+
+    Paint pf(Color col) => Paint()..color = col;
+    RRect rr(double x, double y, double w, double h, double r) =>
+        RRect.fromRectAndRadius(Rect.fromLTWH(x, y, w, h), Radius.circular(r));
 
     // обводка по состоянию выбора
     Paint? stroke;
@@ -492,48 +498,95 @@ class _SeatingPainter extends CustomPainter {
       stroke = Paint()..style = PaintingStyle.stroke..strokeWidth = 3..color = const Color(0xFF00D9FF);
     }
 
-    void back(double x, double y, double w) {
-      canvas.drawRect(Rect.fromLTWH(x, y - 3, w, 3), Paint()..color = Colors.black.withOpacity(0.25));
-    }
-
     switch (s.kind) {
       case SeatKind.standing:
-        canvas.drawCircle(Offset.zero, half * 0.9, fill);
-        if (stroke != null) canvas.drawCircle(Offset.zero, half * 0.9 + 2, stroke);
+        // круг-«пятачок» с человечком
+        canvas.drawCircle(Offset.zero, 16, pf(dark));
+        canvas.drawCircle(Offset.zero, 13.5, pf(base));
+        final person = Paint()..color = Colors.white.withOpacity(0.92);
+        canvas.drawCircle(const Offset(0, -4.5), 3, person);
+        canvas.drawRRect(rr(-4, -0.5, 8, 8, 4), person);
+        if (stroke != null) canvas.drawCircle(Offset.zero, 18.5, stroke);
         break;
       case SeatKind.sofa:
-        final r = RRect.fromRectAndRadius(Rect.fromCenter(center: Offset.zero, width: 54, height: 30), const Radius.circular(6));
-        canvas.drawRRect(r, fill);
-        back(-27, -15, 54);
-        if (stroke != null) canvas.drawRRect(r.inflate(2), stroke);
+        // подлокотники по краям
+        canvas.drawRRect(rr(-29, -10, 6, 24, 3), pf(dark));
+        canvas.drawRRect(rr(23, -10, 6, 24, 3), pf(dark));
+        // спинка
+        canvas.drawRRect(rr(-24, -15, 48, 9, 4), pf(darker));
+        // две подушки сиденья
+        canvas.drawRRect(rr(-23, -7, 22.5, 20, 5), pf(base));
+        canvas.drawRRect(rr(0.5, -7, 22.5, 20, 5), pf(base));
+        // мягкие блики
+        canvas.drawRRect(rr(-21, -5, 18.5, 5, 2.5), pf(glow));
+        canvas.drawRRect(rr(2.5, -5, 18.5, 5, 2.5), pf(glow));
+        if (stroke != null) {
+          canvas.drawRRect(
+            RRect.fromRectAndRadius(Rect.fromCenter(center: Offset.zero, width: 62, height: 34), const Radius.circular(8)),
+            stroke,
+          );
+        }
         break;
       case SeatKind.vip:
-        final r = RRect.fromRectAndRadius(Rect.fromCenter(center: Offset.zero, width: 40, height: 32), const Radius.circular(6));
-        canvas.drawRRect(r, fill);
-        canvas.drawRect(Rect.fromLTWH(-24, -8, 3, 16), fill); // подлокотники
-        canvas.drawRect(Rect.fromLTWH(21, -8, 3, 16), fill);
-        back(-20, -16, 40);
-        if (stroke != null) canvas.drawRRect(r.inflate(3), stroke);
+        // подлокотники
+        canvas.drawRRect(rr(-22, -8, 5, 20, 2.5), pf(dark));
+        canvas.drawRRect(rr(17, -8, 5, 20, 2.5), pf(dark));
+        // спинка с золотой строчкой
+        canvas.drawRRect(rr(-17, -15, 34, 9, 4), pf(darker));
+        canvas.drawRRect(rr(-6, -12.5, 12, 3.5, 1.75), pf(sold ? _shade(base, 0.2) : const Color(0xFFFFD166)));
+        // подушка
+        canvas.drawRRect(rr(-16, -7, 32, 21, 5), pf(base));
+        canvas.drawRRect(rr(-13, -4.5, 26, 6, 3), pf(glow));
+        if (stroke != null) {
+          canvas.drawRRect(
+            RRect.fromRectAndRadius(Rect.fromCenter(center: Offset.zero, width: 48, height: 36), const Radius.circular(8)),
+            stroke,
+          );
+        }
         break;
       case SeatKind.disabled:
-        final r = RRect.fromRectAndRadius(Rect.fromCenter(center: Offset.zero, width: 32, height: 32), const Radius.circular(6));
-        canvas.drawRRect(r, fill);
+        canvas.drawRRect(rr(-15, -15, 30, 30, 8), pf(dark));
+        canvas.drawRRect(rr(-13, -13, 26, 26, 6.5), pf(base));
         final tp = TextPainter(
-          text: const TextSpan(text: '♿', style: TextStyle(color: Colors.white, fontSize: 18)),
+          text: TextSpan(
+            text: String.fromCharCode(Icons.accessible.codePoint),
+            style: TextStyle(
+              fontFamily: Icons.accessible.fontFamily,
+              package: Icons.accessible.fontPackage,
+              fontSize: 20,
+              color: Colors.white,
+            ),
+          ),
           textDirection: TextDirection.ltr,
         )..layout();
         tp.paint(canvas, -Offset(tp.width / 2, tp.height / 2));
-        if (stroke != null) canvas.drawRRect(r.inflate(3), stroke);
+        if (stroke != null) {
+          canvas.drawRRect(
+            RRect.fromRectAndRadius(Rect.fromCenter(center: Offset.zero, width: 37, height: 37), const Radius.circular(9)),
+            stroke,
+          );
+        }
         break;
       case SeatKind.standard:
-        final r = RRect.fromRectAndRadius(Rect.fromCenter(center: Offset.zero, width: 30, height: 28), const Radius.circular(6));
-        canvas.drawRRect(r, fill);
-        back(-15, -14, 30);
-        if (stroke != null) canvas.drawRRect(r.inflate(3), stroke);
+        // спинка
+        canvas.drawRRect(rr(-13, -14, 26, 8, 4), pf(darker));
+        // подушка
+        canvas.drawRRect(rr(-14, -7, 28, 20, 5), pf(base));
+        canvas.drawRRect(rr(-11, -4.5, 22, 5.5, 2.75), pf(glow));
+        if (stroke != null) {
+          canvas.drawRRect(
+            RRect.fromRectAndRadius(Rect.fromCenter(center: Offset.zero, width: 34, height: 32), const Radius.circular(7)),
+            stroke,
+          );
+        }
         break;
     }
     canvas.restore();
   }
+
+  /// Затемнение (f < 0) или осветление (f > 0) базового цвета кресла.
+  Color _shade(Color c, double f) =>
+      f < 0 ? Color.lerp(c, Colors.black, -f)! : Color.lerp(c, Colors.white, f)!;
 
   @override
   bool shouldRepaint(covariant _SeatingPainter old) =>

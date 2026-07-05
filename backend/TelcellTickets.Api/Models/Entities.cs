@@ -32,6 +32,14 @@ public class Venue
     public ICollection<Event> Events { get; set; } = new List<Event>();
 }
 
+/// <summary>Жизненный цикл события (Задача 4): активно / отменено / перенесено.</summary>
+public enum EventStatus
+{
+    Active,
+    Cancelled,
+    Rescheduled
+}
+
 /// <summary>Событие афиши.</summary>
 public class Event
 {
@@ -55,6 +63,15 @@ public class Event
 
     public bool IsFeatured { get; set; }
     public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.UtcNow;
+
+    // ── Отмена / перенос события (Задача 4) ─────────────────────────────
+    public EventStatus Status { get; set; } = EventStatus.Active;
+
+    /// <summary>Новая дата при переносе (Status == Rescheduled).</summary>
+    public DateTimeOffset? NewStartsAt { get; set; }
+
+    /// <summary>Дедлайн решения покупателя при переносе (обычно +72 часа).</summary>
+    public DateTimeOffset? DecisionDeadline { get; set; }
 }
 
 /// <summary>Тип билета события (Standard / VIP / …) c ценой и остатком.</summary>
@@ -108,7 +125,10 @@ public enum TicketStatus
     CheckedIn,   // прошёл вход (скан QR)
     Transferred, // передан другому пользователю — QR оригинала аннулирован
     Refunded,
-    Cancelled
+    Cancelled,
+    EventCancelled,       // событие отменено организатором — авто-возврат
+    RescheduledPending,   // событие перенесено — покупатель ещё не решил
+    RescheduledConfirmed  // покупатель подтвердил участие на новую дату
 }
 
 /// <summary>Купленный билет с QR-токеном.</summary>

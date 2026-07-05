@@ -79,6 +79,7 @@ public class AppDbContext : DbContext
 
         // enum -> string в БД (читаемо для дебага)
         b.Entity<Event>().Property(e => e.Category).HasConversion<string>();
+        b.Entity<Event>().Property(e => e.Status).HasConversion<string>();
         b.Entity<Ticket>().Property(t => t.Status).HasConversion<string>();
         b.Entity<Order>().Property(o => o.Status).HasConversion<string>();
 

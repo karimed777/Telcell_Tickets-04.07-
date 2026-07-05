@@ -196,10 +196,14 @@ class HttpTicketsApi implements TicketsApi {
 
   @override
   SeatingRealtime openSeating(SeatingLayout layout, String eventId) {
-    // TODO: реальный WebSocket-клиент к /ws/events/$eventId/seats
-    // (?sessionId=...&token=$authToken). Требует пакет web_socket_channel.
-    // Пока — мок-канал, чтобы UI работал; серверная логика резерва готова.
-    return MockSeatingRealtime(layout);
+    // Реальный WebSocket-канал к бэкенду. Резервы, лимит 5 мест и
+    // истечение через 5 минут обрабатываются сервером; клиент только
+    // шлёт reserve/release/keepalive и слушает broadcast-события.
+    return WsSeatingRealtime(
+      baseUrl: baseUrl,
+      eventId: eventId,
+      authToken: authToken,
+    );
   }
 
   @override

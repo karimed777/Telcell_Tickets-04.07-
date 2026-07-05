@@ -20,6 +20,8 @@ dependencies:
   latlong2: ^0.9.1
   # HTTP-клиент для C# backend:
   http: ^1.2.0
+  # WebSocket-клиент для реалтайм-выбора мест (/ws/events/{id}/seats):
+  web_socket_channel: ^2.4.5
   # Хранение сессии (токен/телефон) между запусками:
   shared_preferences: ^2.2.2
   # Локальные push-уведомления (покупка/отмена/перенос), без FCM:

@@ -41,5 +41,9 @@ const API = (() => {
     getEventLayout: (eventId) => req('GET', `/api/events/${eventId}/layout`).catch(() => null),
     saveEventLayout: (eventId, dto) => req('POST', `/api/events/${eventId}/layout`, dto),
     updateEventLayout: (eventId, dto) => req('PUT', `/api/events/${eventId}/layout`, dto),
+
+    // Отмена / перенос события
+    cancelEvent: (eventId) => req('POST', `/api/admin/events/${eventId}/cancel`),
+    rescheduleEvent: (eventId, dto) => req('POST', `/api/admin/events/${eventId}/reschedule`, dto),
   };
 })();

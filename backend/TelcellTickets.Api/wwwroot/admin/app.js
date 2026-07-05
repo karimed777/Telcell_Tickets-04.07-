@@ -155,7 +155,7 @@ async function openLayoutEditor(id) {
 
 // ══════════════════════════════════════════════════════════════════════════
 //  Мероприятия (3.3)
-// ══════════════════════════════════════════════════════════════════════════
+// ════════════════════════════��═════════════════════════════════════════════
 async function renderEvents() {
   const v = view();
   v.innerHTML = `<div class="page"><div class="page-head"><h1>Мероприятия</h1></div><div id="events-list"><div class="empty">Загрузка…</div></div></div>`;
@@ -168,15 +168,24 @@ async function renderEvents() {
     list.innerHTML = events.map((e, i) => {
       const lay = layouts[i];
       const hasPlan = lay && lay.hasSeatingPlan;
+      const st = e.status || 'Active';
+      const stBadge = st === 'Cancelled'
+        ? `<span class="badge" style="background:#fdecea;color:#c0392b">Отменено</span>`
+        : st === 'Rescheduled'
+          ? `<span class="badge" style="background:#fef5e7;color:#b9770e">Перенесено → ${e.newStartsAt ? new Date(e.newStartsAt).toLocaleDateString('ru-RU') : ''}</span>`
+          : '';
       return `
         <div class="event-row" data-id="${e.id}">
           <div>
             <div class="ev-title">${e.title}</div>
             <div class="ev-meta">${e.venue?.name || ''} · ${new Date(e.startsAt).toLocaleDateString('ru-RU')}</div>
           </div>
-          <div style="display:flex;align-items:center;gap:12px">
+          <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+            ${stBadge}
             <span class="badge ${hasPlan ? 'plan' : 'plus'}">${hasPlan ? 'Схема зала' : 'Плюсики'}</span>
             <button class="btn btn-outline btn-sm" data-config="${e.id}">Схема зала…</button>
+            ${st !== 'Cancelled' ? `<button class="btn btn-outline btn-sm" data-reschedule="${e.id}">Перенести…</button>
+            <button class="btn btn-outline btn-sm" style="color:#c0392b;border-color:#c0392b" data-cancel="${e.id}">Отменить…</button>` : ''}
           </div>
         </div>`;
     }).join('');
@@ -184,7 +193,52 @@ async function renderEvents() {
       const ev = events.find(x => x.id === btn.dataset.config);
       configureEventSeating(ev, layouts[events.indexOf(ev)]);
     });
+    list.querySelectorAll('[data-cancel]').forEach(btn => btn.onclick = () => {
+      const ev = events.find(x => x.id === btn.dataset.cancel);
+      cancelEventDialog(ev);
+    });
+    list.querySelectorAll('[data-reschedule]').forEach(btn => btn.onclick = () => {
+      const ev = events.find(x => x.id === btn.dataset.reschedule);
+      rescheduleEventDialog(ev);
+    });
   } catch (e) { list.innerHTML = `<div class="empty">Ошибка: ${e.message}</div>`; }
+}
+
+// Диалог отмены события: все активные билеты → авто-возврат.
+function cancelEventDialog(ev) {
+  UI.modal({
+    title: `Отменить событие — ${ev.title}`,
+    okText: 'Отменить событие',
+    body: `<p style="margin:0;color:#555">Все активные билеты будут аннулированы, покупателям начислен автоматический возврат средств. Действие необратимо.</p>`,
+    onOk: async () => {
+      try {
+        const r = await API.cancelEvent(ev.id);
+        UI.toast(`Событие отменено, возвратов: ${r.refundedTickets}`, 'ok');
+        renderEvents();
+      } catch (e) { UI.toast(e.message, 'err'); }
+    },
+  });
+}
+
+// Диалог переноса события: новая дата + дедлайн решения покупателя (72ч по умолчанию).
+function rescheduleEventDialog(ev) {
+  UI.modal({
+    title: `Перенести событие — ${ev.title}`,
+    okText: 'Перенести',
+    body: `
+      <p style="margin:0 0 12px;color:#555">Билеты перейдут в статус «ожидает решения»: покупатель подтверждает участие или получает возврат (72 часа на решение).</p>
+      <label style="display:block;margin-bottom:6px;font-weight:600">Новая дата и время</label>
+      <input type="datetime-local" id="resched-date" style="width:100%;padding:8px;border:1px solid #ccc;border-radius:8px" />`,
+    onOk: async () => {
+      const val = document.getElementById('resched-date')?.value;
+      if (!val) { UI.toast('Укажите новую дату', 'err'); return; }
+      try {
+        const r = await API.rescheduleEvent(ev.id, { newStartsAt: new Date(val).toISOString() });
+        UI.toast(`Перенесено, билетов в ожидании: ${r.pendingTickets}`, 'ok');
+        renderEvents();
+      } catch (e) { UI.toast(e.message, 'err'); }
+    },
+  });
 }
 
 // Диалог настройки схемы для мероприятия

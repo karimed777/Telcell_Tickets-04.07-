@@ -348,10 +348,14 @@ app.MapPost("/api/tickets/{id:guid}/request-refund", async (AppDbContext db, Gui
         return Results.Conflict(new { error = "Билет уже использован — возврат невозможен." });
     if (t.Status == TicketStatus.Refunded)
         return Results.Conflict(new { error = "Билет уже возвращён." });
-    if (t.Status != TicketStatus.Issued)
+    // Возврат доступен: при переносе события (ожидает решения), при отмене
+    // события, либо для обычного билета с Refund Guarantee.
+    var refundable =
+        t.Status == TicketStatus.RescheduledPending ||
+        t.Status == TicketStatus.EventCancelled ||
+        (t.Status == TicketStatus.Issued && RefundAllowed(t.Event!));
+    if (!refundable)
         return Results.BadRequest(new { error = $"Возврат недоступен ({t.Status})." });
-    if (!RefundAllowed(t.Event!))
-        return Results.BadRequest(new { error = "Для этого билета возврат не предусмотрен." });
 
     t.Status = TicketStatus.Refunded;
     await db.SaveChangesAsync();

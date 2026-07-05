@@ -4,8 +4,8 @@ import '../l10n/app_strings.dart';
 import '../theme/app_theme.dart';
 import '../services/session.dart';
 import '../widgets/brand_shapes.dart';
+import 'auth_screen.dart';
 import 'home_shell.dart';
-import 'login_screen.dart';
 
 /// Онбординг — стиль Telcell Wallet: белый фон, оранжевая кнопка,
 /// indigo-баннер сверху с лого.
@@ -18,7 +18,7 @@ class OnboardingScreen extends StatelessWidget {
 
   void _login(BuildContext context) {
     Navigator.of(context).push(
-      MaterialPageRoute(builder: (_) => const LoginScreen()),
+      MaterialPageRoute(builder: (_) => const AuthScreen()),
     );
   }
 

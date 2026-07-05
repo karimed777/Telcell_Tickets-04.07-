@@ -83,6 +83,16 @@ class ProfileScreen extends StatelessWidget {
                     color: AppColors.inkSecondary,
                   ),
                 ),
+              if (session.email != null && session.email!.isNotEmpty) ...[
+                const SizedBox(height: 4),
+                Text(
+                  session.email!,
+                  style: const TextStyle(
+                    fontSize: 14,
+                    color: AppColors.inkSecondary,
+                  ),
+                ),
+              ],
               const SizedBox(height: 40),
               // Карточка с информацией
               Container(
@@ -109,6 +119,14 @@ class ProfileScreen extends StatelessWidget {
                       icon: Icons.phone_outlined,
                       title: 'Телефон',
                       value: session.phone ?? 'Не указан',
+                    ),
+                    const Divider(height: 1, indent: 60),
+                    _ProfileItem(
+                      icon: Icons.alternate_email_rounded,
+                      title: 'Email',
+                      value: (session.email != null && session.email!.isNotEmpty)
+                          ? session.email!
+                          : 'Не указан',
                     ),
                     if (session.isAdmin) ...[
                       const Divider(height: 1, indent: 60),

@@ -86,6 +86,9 @@ class MockAuthApi implements AuthApi {
     final id = 'user-${DateTime.now().microsecondsSinceEpoch}';
     _users[id] = _MockUser(
         id: id, name: name.trim(), email: e, phone: p, isAdmin: false);
+    // Один и тот же код «отправляется» и на телефон, и на почту.
+    _pending[p] = devCode;
+    _pending[e] = devCode;
     return devCode;
   }
 
@@ -100,7 +103,9 @@ class MockAuthApi implements AuthApi {
       orElse: () => throw StateError(
           '{"error":"Пользователь с таким email или телефоном не найден."}'),
     );
-    _pending[c] = devCode;
+    // Ключ — нормализованный контакт (телефон без пробелов / email в нижнем
+    // регистре), чтобы проверка кода не зависела от форматирования ввода.
+    _pending[c.contains('@') ? c.toLowerCase() : _norm(c)] = devCode;
     return devCode;
   }
 
@@ -136,7 +141,8 @@ class MockAuthApi implements AuthApi {
       );
     }
 
-    if (_pending[c] != code.trim()) {
+    final key = c.contains('@') ? c.toLowerCase() : _norm(c);
+    if (_pending[key] != code.trim()) {
       throw StateError('{"error":"Неверный код."}');
     }
 
@@ -144,8 +150,12 @@ class MockAuthApi implements AuthApi {
       (u) =>
           u.phone == _norm(c) ||
           (c.contains('@') && u.email == c.toLowerCase()),
+      orElse: () => throw StateError(
+          '{"error":"Пользователь с таким email или телефоном не найден."}'),
     );
-    _pending.remove(c);
+    // Гасим код по всем контактам пользователя (телефон + email).
+    _pending.remove(user.phone);
+    if (user.email.isNotEmpty) _pending.remove(user.email);
 
     return AuthResult(
       token: 'mock-${DateTime.now().microsecondsSinceEpoch}',

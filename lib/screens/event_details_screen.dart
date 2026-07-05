@@ -9,8 +9,8 @@ import '../theme/app_theme.dart';
 import '../widgets/event_cover.dart';
 import '../widgets/language_pill.dart';
 import '../widgets/purchase_widgets.dart';
+import 'auth_screen.dart';
 import 'checkout_screen.dart';
-import 'login_screen.dart';
 import 'seating_plan_screen.dart';
 
 /// Экран события — стиль Telcell Wallet.
@@ -87,7 +87,7 @@ class _EventDetailsScreenState extends State<EventDetailsScreen> {
 
       // Открываем вход в режиме «вернуться после успеха».
       final loggedIn = await Navigator.of(context).push<bool>(
-        MaterialPageRoute(builder: (_) => const LoginScreen(popOnSuccess: true)),
+        MaterialPageRoute(builder: (_) => const AuthScreen(popOnSuccess: true)),
       );
       if (loggedIn != true || !mounted) return;
     }

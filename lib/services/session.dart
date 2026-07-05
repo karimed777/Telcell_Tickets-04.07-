@@ -19,12 +19,14 @@ class AppSession extends ChangeNotifier {
   static const _kToken = 'session_token';
   static const _kPhone = 'session_phone';
   static const _kName = 'session_name';
+  static const _kEmail = 'session_email';
   static const _kGuest = 'session_guest';
   static const _kAdmin = 'session_admin';
 
   String? _token;
   String? _phone;
   String? _name;
+  String? _email;
   bool _isGuest = false;
   bool _isAdmin = false;
 
@@ -36,6 +38,9 @@ class AppSession extends ChangeNotifier {
 
   /// Отображаемое имя пользователя.
   String? get name => _name;
+
+  /// Email пользователя (второй способ входа и получения кода).
+  String? get email => _email;
 
   /// true, если выбран режим «Продолжить как гость».
   bool get isGuest => _isGuest;
@@ -56,6 +61,7 @@ class AppSession extends ChangeNotifier {
     _token = p.getString(_kToken);
     _phone = p.getString(_kPhone);
     _name = p.getString(_kName);
+    _email = p.getString(_kEmail);
     _isGuest = p.getBool(_kGuest) ?? false;
     _isAdmin = p.getBool(_kAdmin) ?? false;
     notifyListeners();
@@ -66,17 +72,24 @@ class AppSession extends ChangeNotifier {
     required String token,
     required String phone,
     required String name,
+    String? email,
     bool isAdmin = false,
   }) async {
     _token = token;
     _phone = phone;
     _name = name;
+    _email = email;
     _isGuest = false;
     _isAdmin = isAdmin;
     final p = await SharedPreferences.getInstance();
     await p.setString(_kToken, token);
     await p.setString(_kPhone, phone);
     await p.setString(_kName, name);
+    if (email != null && email.isNotEmpty) {
+      await p.setString(_kEmail, email);
+    } else {
+      await p.remove(_kEmail);
+    }
     await p.setBool(_kGuest, false);
     await p.setBool(_kAdmin, isAdmin);
     notifyListeners();
@@ -87,12 +100,14 @@ class AppSession extends ChangeNotifier {
     _token = null;
     _phone = null;
     _name = null;
+    _email = null;
     _isGuest = true;
     _isAdmin = false;
     final p = await SharedPreferences.getInstance();
     await p.remove(_kToken);
     await p.remove(_kPhone);
     await p.remove(_kName);
+    await p.remove(_kEmail);
     await p.setBool(_kGuest, true);
     await p.setBool(_kAdmin, false);
     notifyListeners();
@@ -103,12 +118,14 @@ class AppSession extends ChangeNotifier {
     _token = null;
     _phone = null;
     _name = null;
+    _email = null;
     _isGuest = false;
     _isAdmin = false;
     final p = await SharedPreferences.getInstance();
     await p.remove(_kToken);
     await p.remove(_kPhone);
     await p.remove(_kName);
+    await p.remove(_kEmail);
     await p.remove(_kGuest);
     await p.remove(_kAdmin);
     notifyListeners();

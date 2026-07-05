@@ -24,7 +24,11 @@ public record EventDto(
     decimal MinPrice,
     // Refund Guarantee (PRD §8, Сценарий В): можно ли вернуть билет.
     bool RefundGuarantee = false,
-    int RefundUntilHours = 24);
+    int RefundUntilHours = 24,
+    // Жизненный цикл события: Active | Cancelled | Rescheduled.
+    string Status = "Active",
+    DateTimeOffset? NewStartsAt = null,
+    DateTimeOffset? DecisionDeadline = null);
 
 public record TicketDto(
     Guid Id,
@@ -41,7 +45,11 @@ public record TicketDto(
     string? TransferredTo = null,
     // Возврат разрешён для этого билета (наследуется от события).
     bool RefundGuarantee = false,
-    int RefundUntilHours = 24);
+    int RefundUntilHours = 24,
+    // Статус события (Cancelled/Rescheduled) + новая дата и дедлайн решения.
+    string EventStatus = "Active",
+    DateTimeOffset? NewStartsAt = null,
+    DateTimeOffset? DecisionDeadline = null);
 
 public record OrderResultDto(Guid OrderId, string Status, decimal Total, string Currency, IEnumerable<TicketDto> Tickets);
 
@@ -60,6 +68,9 @@ public record CheckoutRequestDto(
     string? SessionId = null);
 
 public record CheckInRequestDto(string QrToken);
+
+/// <summary>Перенос события (админ): новая дата + опциональный дедлайн решения.</summary>
+public record RescheduleRequestDto(DateTimeOffset NewStartsAt, DateTimeOffset? DecisionDeadline = null);
 
 /// <summary>Передача билета другому пользователю (PRD §5.5, US-03).</summary>
 public record TransferRequestDto(string ToContact);

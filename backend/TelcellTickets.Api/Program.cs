@@ -61,7 +61,8 @@ static EventDto ToDto(Event e) => new(
         e.Venue.Latitude, e.Venue.Longitude),
     e.TicketTypes.Select(t => new TicketTypeDto(t.Id, t.Name, t.NameAm, t.Price, t.Currency, t.Quantity - t.Sold)),
     e.TicketTypes.Count == 0 ? 0 : e.TicketTypes.Min(t => t.Price),
-    RefundAllowed(e), RefundUntilHoursDefault);
+    RefundAllowed(e), RefundUntilHoursDefault,
+    e.Status.ToString(), e.NewStartsAt, e.DecisionDeadline);
 
 static TicketDto TicketToDto(Ticket t) => new(
     t.Id, t.EventId, t.Event!.Title, t.Event.StartsAt, t.Event.Venue!.Name,
@@ -70,7 +71,8 @@ static TicketDto TicketToDto(Ticket t) => new(
     t.Price != 0 ? t.Price : (t.TicketType?.Price ?? 0),
     t.TicketType?.Currency ?? "AMD",
     t.QrToken, t.Status.ToString(), t.IssuedAt, t.TransferredTo,
-    RefundAllowed(t.Event), RefundUntilHoursDefault);
+    RefundAllowed(t.Event), RefundUntilHoursDefault,
+    t.Event.Status.ToString(), t.Event.NewStartsAt, t.Event.DecisionDeadline);
 
 // ─── СОБЫТИЯ: список с поиском/фильтрами (как в Яндекс Афише) ─────────
 // GET /api/events?category=Concert&q=rock&city=Yerevan&from=2026-07-01&featured=true
@@ -284,7 +286,8 @@ app.MapPost("/api/checkin", async (AppDbContext db, CheckInRequestDto req) =>
     if (t is null) return Results.NotFound(new { error = "Билет не найден." });
     if (t.Status == TicketStatus.CheckedIn)
         return Results.Conflict(new { error = "Билет уже использован.", checkedInAt = t.CheckedInAt });
-    if (t.Status != TicketStatus.Issued)
+    // Валидны: обычный билет и билет с подтверждённым переносом.
+    if (t.Status != TicketStatus.Issued && t.Status != TicketStatus.RescheduledConfirmed)
         return Results.BadRequest(new { error = $"Билет недействителен ({t.Status})." });
 
     t.Status = TicketStatus.CheckedIn;
@@ -349,6 +352,90 @@ app.MapPost("/api/tickets/{id:guid}/request-refund", async (AppDbContext db, Gui
         return Results.BadRequest(new { error = $"Возврат недоступен ({t.Status})." });
     if (!RefundAllowed(t.Event!))
         return Results.BadRequest(new { error = "Для этого билета возврат не предусмотрен." });
+
+    t.Status = TicketStatus.Refunded;
+    await db.SaveChangesAsync();
+    return Results.Ok(TicketToDto(t));
+});
+
+// ─── ОТМЕНА / ПЕРЕНОС СОБЫТИЯ (админ) ────────────────────────────────
+// POST /api/admin/events/{id}/cancel — событие отменено: все активные
+// билеты переводятся в EventCancelled (авто-возврат средств, QR аннулирован).
+app.MapPost("/api/admin/events/{id:guid}/cancel", async (AppDbContext db, Guid id) =>
+{
+    var e = await db.Events.FirstOrDefaultAsync(x => x.Id == id);
+    if (e is null) return Results.NotFound(new { error = "Событие не найдено." });
+    if (e.Status == EventStatus.Cancelled)
+        return Results.Conflict(new { error = "Событие уже отменено." });
+
+    e.Status = EventStatus.Cancelled;
+    e.NewStartsAt = null;
+    e.DecisionDeadline = null;
+
+    var tickets = await db.Tickets
+        .Where(t => t.EventId == id &&
+            (t.Status == TicketStatus.Issued ||
+             t.Status == TicketStatus.RescheduledPending ||
+             t.Status == TicketStatus.RescheduledConfirmed))
+        .ToListAsync();
+    foreach (var t in tickets)
+        t.Status = TicketStatus.EventCancelled;
+
+    await db.SaveChangesAsync();
+    return Results.Ok(new { status = "Cancelled", refundedTickets = tickets.Count });
+});
+
+/// Запрос переноса: новая дата обязательна; дедлайн решения по умолчанию +72ч.
+app.MapPost("/api/admin/events/{id:guid}/reschedule", async (AppDbContext db, Guid id, RescheduleRequestDto req) =>
+{
+    var e = await db.Events.FirstOrDefaultAsync(x => x.Id == id);
+    if (e is null) return Results.NotFound(new { error = "Событие не найдено." });
+    if (e.Status == EventStatus.Cancelled)
+        return Results.Conflict(new { error = "Событие отменено — перенос невозможен." });
+    if (req.NewStartsAt <= DateTimeOffset.UtcNow)
+        return Results.BadRequest(new { error = "Новая дата должна быть в будущем." });
+
+    e.Status = EventStatus.Rescheduled;
+    e.NewStartsAt = req.NewStartsAt;
+    e.DecisionDeadline = req.DecisionDeadline ?? DateTimeOffset.UtcNow.AddHours(72);
+
+    var tickets = await db.Tickets
+        .Where(t => t.EventId == id && t.Status == TicketStatus.Issued)
+        .ToListAsync();
+    foreach (var t in tickets)
+        t.Status = TicketStatus.RescheduledPending;
+
+    await db.SaveChangesAsync();
+    return Results.Ok(new { status = "Rescheduled", newStartsAt = e.NewStartsAt, decisionDeadline = e.DecisionDeadline, pendingTickets = tickets.Count });
+});
+
+// ─── РЕШЕНИЕ ПОКУПАТЕЛЯ по перенесённому событию ─────────────────────
+// POST /api/tickets/{id}/reschedule/confirm — иду на новую дату (QR остаётся).
+app.MapPost("/api/tickets/{id:guid}/reschedule/confirm", async (AppDbContext db, Guid id) =>
+{
+    var t = await db.Tickets
+        .Include(x => x.Event).ThenInclude(e => e!.Venue)
+        .Include(x => x.TicketType)
+        .FirstOrDefaultAsync(x => x.Id == id);
+    if (t is null) return Results.NotFound(new { error = "Билет не найден." });
+    if (t.Status != TicketStatus.RescheduledPending)
+        return Results.BadRequest(new { error = $"Подтверждение недоступно ({t.Status})." });
+
+    t.Status = TicketStatus.RescheduledConfirmed;
+    await db.SaveChangesAsync();
+    return Results.Ok(TicketToDto(t));
+});
+
+// POST /api/tickets/{id}/reschedule/refund — не иду: возврат средств, QR аннулирован.
+app.MapPost("/api/tickets/{id:guid}/reschedule/refund", async (AppDbContext db, Guid id) =>
+{
+    var t = await db.Tickets
+        .Include(x => x.Event).ThenInclude(e => e!.Venue)
+        .Include(x => x.TicketType)
+        .FirstOrDefaultAsync(x => x.Id == id);
+    if (t is null) return Results.NotFound(new { error = "Билет не найден." });
+    if (t.Status != TicketStatus.RescheduledPending)
+        return Results.BadRequest(new { error = $"Возврат недоступен ({t.Status})." });
 
     t.Status = TicketStatus.Refunded;
     await db.SaveChangesAsync();
@@ -482,7 +569,7 @@ app.MapDelete("/api/venue-layouts/{id:guid}", async (AppDbContext db, Guid id) =
     return Results.NoContent();
 });
 
-// ══════════════════════════════════════════════════════════════════════════
+// ════════════════════════════════════════════���═════════════════════════════
 //  СХЕМА МЕРОПРИЯТИЯ (EventLayout)
 // ══════════════════════════════════════════════════════════════════════════
 
